@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #FFF5F2;
+  color: #4A3A3A;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FFF5F2;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #FFCABE;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E8B5A9;
+}
+
+.transition-all {
+  transition: all 0.3s ease-in-out;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+::selection {
+  background: #FFCABE;
+  color: #4A3A3A;
+}
+*:focus-visible {
+  outline: 2px solid #FFCABE;
+  outline-offset: 2px;
+}
+
+.bg-gradient-soft {
+  background: linear-gradient(135deg, #FFF5F2 0%, #FFCABE 100%);
+}

@@ -1,0 +1,9 @@
+{
+  "name": "JanSethu - People's Bridge to Solutions",
+  "short_name": "JanSethu",
+  "description": "Report problems and collaborate to solve them",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9"
+}
