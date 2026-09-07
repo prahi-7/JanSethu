@@ -1,10 +1,18 @@
 // Service Worker for JanSethu - Offline Support
 
-const CACHE_NAME = 'jansethu-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-];
+// Service Worker - Minimal Version (No Caching)
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', () => {
+  self.clients.claim();
+});
+
+// Don't cache anything - just fetch from network
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
