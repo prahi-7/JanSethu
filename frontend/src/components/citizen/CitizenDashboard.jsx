@@ -1,59 +1,129 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FaExclamationTriangle, 
-  FaCheckCircle, 
-  FaClock, 
-  FaUser,
-  FaArrowRight,
-  FaFileAlt,
-  FaMicrophone,
-  FaVideo,
-  FaImage
-} from 'react-icons/fa';
+import { FaPlus, FaExclamationTriangle, FaCheckCircle, FaClock, FaMapMarkerAlt, FaEye } from 'react-icons/fa';
 import Sidebar from '../common/Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const CitizenDashboard = () => {
+  const { user } = useAuth();
+  const [problems, setProblems] = useState([]);
   const [stats, setStats] = useState({
-    totalReports: 0,
-    solved: 0,
-    inProgress: 0,
+    total: 0,
     pending: 0,
+    inProgress: 0,
+    solved: 0
   });
-  const [recentProblems, setRecentProblems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    if (user?._id) {
+      fetchProblems();
+    }
+  }, [user]);
+
+  const updateStats = (problemsList) => {
+    const stats = {
+      total: problemsList.length,
+      pending: problemsList.filter(p => p.status === 'Pending').length,
+      inProgress: problemsList.filter(p => p.status === 'In Progress' || p.status === 'Under Review').length,
+      solved: problemsList.filter(p => p.status === 'Solved').length
+    };
+    setStats(stats);
+  };
+
+  const fetchProblems = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('jwt_token');
+      
+      if (!token) {
+        toast.error('Please login again');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('🔍 Fetching problems for user:', user._id);
+      
+      // Try citizen-specific endpoint
+      let response = await fetch(`http://localhost:5000/api/problems/citizen/${user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      let data = await response.json();
+      console.log('📥 Citizen endpoint response:', data);
+      
+      // If citizen endpoint fails or returns empty, try all problems
+      if (!data.success || (data.data?.data?.length === 0 && data.data?.length === 0)) {
+        console.log('🔄 Trying fallback: fetching all problems');
+        response = await fetch(`http://localhost:5000/api/problems`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        data = await response.json();
+        console.log('📥 All problems response:', data);
+        
+        if (data.success) {
+          const allProblems = data.data.data || data.data || [];
+          // Filter by citizen ID
+          const citizenProblems = allProblems.filter(p => 
+            p.citizen?._id === user._id || 
+            p.citizen === user._id ||
+            p.citizenId === user._id
+          );
+          console.log('📊 Filtered problems:', citizenProblems);
+          setProblems(citizenProblems);
+          updateStats(citizenProblems);
+          return;
+        }
+      }
+      
+      if (data.success) {
+        const problemsList = data.data.data || data.data || [];
+        setProblems(problemsList);
+        updateStats(problemsList);
+      } else {
+        toast.error(data.message || 'Failed to load problems');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching problems:', error);
+      toast.error('Failed to load dashboard');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
-    const map = {
-      'In Progress': 'text-yellow-600 bg-yellow-50',
-      'Solved': 'text-green-600 bg-green-50',
-      'Under Review': 'text-blue-600 bg-blue-50',
-      'Pending': 'text-gray-600 bg-gray-50',
-    };
-    return map[status] || 'text-gray-600 bg-gray-50';
+    switch(status) {
+      case 'Solved': return 'text-green-500 bg-green-50';
+      case 'Pending': return 'text-yellow-500 bg-yellow-50';
+      case 'Under Review': return 'text-blue-500 bg-blue-50';
+      case 'In Progress': return 'text-purple-500 bg-purple-50';
+      case 'Rejected': return 'text-red-500 bg-red-50';
+      default: return 'text-gray-500 bg-gray-50';
+    }
   };
 
-  const getPriorityColor = (priority) => {
-    const map = {
-      'High': 'bg-red-50 text-red-600',
-      'Medium': 'bg-yellow-50 text-yellow-600',
-      'Low': 'bg-blue-50 text-blue-600',
-    };
-    return map[priority] || 'bg-gray-50 text-gray-600';
+  const getStatusIcon = (status) => {
+    switch(status) {
+      case 'Solved': return <FaCheckCircle />;
+      case 'Pending': return <FaClock />;
+      case 'Rejected': return <FaExclamationTriangle />;
+      default: return <FaClock />;
+    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-[#FFF5F2] via-white to-blue-50 pt-16">
-        <div className="hidden md:block"><Sidebar role="citizen" /></div>
+        <Sidebar role="citizen" />
         <div className="flex-1 p-4 md:p-8 ml-0 md:ml-64 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#FFCABE] border-t-[#FFCABE] rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-gray-400">Loading...</p>
+            <div className="w-12 h-12 border-4 border-[#FFCABE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading your problems...</p>
           </div>
         </div>
       </div>
@@ -62,116 +132,103 @@ const CitizenDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#FFF5F2] via-white to-blue-50 pt-16">
-      <div className="hidden md:block"><Sidebar role="citizen" /></div>
-      
-      <div className="flex-1 p-3 sm:p-4 md:p-8 ml-0 md:ml-64">
-        <div className="mb-4 md:mb-8">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-700">Hello, Citizen 👋</h1>
-          <p className="text-sm md:text-base text-gray-400">Track your reported problems</p>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6 mb-4 md:mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 md:p-6 hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs md:text-sm text-gray-400">Total Reports</p>
-                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#FFCABE]">{stats.totalReports}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-[#FFF5F2] rounded-full flex items-center justify-center">
-                <FaFileAlt className="text-pink-400 text-base sm:text-lg md:text-xl" />
-              </div>
+      <Sidebar role="citizen" />
+      <div className="flex-1 p-4 md:p-8 ml-0 md:ml-64">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-700">My Dashboard</h1>
+              <p className="text-gray-400 text-sm">Welcome back, {user?.name}!</p>
             </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 md:p-6 hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs md:text-sm text-gray-400">Solved</p>
-                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-green-500">{stats.solved}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-green-50 rounded-full flex items-center justify-center">
-                <FaCheckCircle className="text-green-400 text-base sm:text-lg md:text-xl" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 md:p-6 hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs md:text-sm text-gray-400">In Progress</p>
-                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-yellow-500">{stats.inProgress}</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-yellow-50 rounded-full flex items-center justify-center">
-                <FaClock className="text-yellow-400 text-base sm:text-lg md:text-xl" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 md:p-6 hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] sm:text-xs md:text-sm text-gray-400">Profile</p>
-                <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-600">Citizen</p>
-              </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-purple-50 rounded-full flex items-center justify-center">
-                <FaUser className="text-purple-400 text-base sm:text-lg md:text-xl" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4 md:mb-8">
-          <Link to="/citizen/report" className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-2 sm:p-3 md:p-4 text-center hover:shadow-md transition-all hover:border-[#FFCABE]">
-            <FaFileAlt className="text-xl sm:text-2xl text-pink-400 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs md:text-sm text-gray-600">Text</p>
-          </Link>
-          <Link to="/citizen/report" className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-2 sm:p-3 md:p-4 text-center hover:shadow-md transition-all hover:border-green-200">
-            <FaMicrophone className="text-xl sm:text-2xl text-green-400 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs md:text-sm text-gray-600">Voice</p>
-          </Link>
-          <Link to="/citizen/report" className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-2 sm:p-3 md:p-4 text-center hover:shadow-md transition-all hover:border-purple-200">
-            <FaImage className="text-xl sm:text-2xl text-purple-400 mx-auto mb-1" />
-            <p className="text-[10px] sm:text-xs md:text-sm text-gray-600">Photo/Video</p>
-          </Link>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-4 gap-2">
-            <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-700">Recent Problems</h2>
-            <Link to="/citizen/problems" className="text-[#FFCABE] hover:text-pink-700 text-xs sm:text-sm flex items-center">
-              View All <FaArrowRight className="ml-1" />
-            </Link>
-          </div>
-
-          {recentProblems.length === 0 ? (
-            <div className="text-center py-6 md:py-8 text-gray-400">
-              <FaCheckCircle className="text-4xl text-gray-300 mx-auto mb-3" />
-              <p className="text-sm">No problems reported yet</p>
-              <Link to="/citizen/report" className="text-[#FFCABE] hover:text-pink-700 text-sm mt-2 inline-block">
-                Report your first problem →
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2 sm:space-y-3">
-              {recentProblems.map((problem) => (
-                <Link
-                  key={problem.id}
-                  to={`/citizen/track/${problem.id}`}
-                  className="block p-2 sm:p-3 md:p-4 bg-white/50 rounded-xl hover:bg-white/80 transition-all"
-                >
-                  {/* Problem details */}
-                </Link>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-100">
             <Link
               to="/citizen/report"
-              className="w-full bg-gradient-to-r from-[#FFCABE] to-[#E8B5A9] text-white py-2.5 sm:py-3 rounded-xl font-semibold hover:shadow-lg transition-all block text-center text-sm sm:text-base shadow-[#FFCABE]/20"
+              className="mt-3 md:mt-0 bg-gradient-to-r from-[#FFCABE] to-[#E8B5A9] text-white px-6 py-2.5 rounded-xl font-semibold hover:shadow-lg shadow-[#FFCABE] transition-all flex items-center gap-2 hover:scale-[1.02]"
             >
-              Report a New Problem 🚀
+              <FaPlus /> Report New Problem
             </Link>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-gray-100">
+              <p className="text-gray-400 text-sm">Total</p>
+              <p className="text-2xl font-bold text-gray-700">{stats.total}</p>
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-yellow-100">
+              <p className="text-yellow-500 text-sm">Pending</p>
+              <p className="text-2xl font-bold text-yellow-500">{stats.pending}</p>
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-purple-100">
+              <p className="text-purple-500 text-sm">In Progress</p>
+              <p className="text-2xl font-bold text-purple-500">{stats.inProgress}</p>
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-green-100">
+              <p className="text-green-500 text-sm">Solved</p>
+              <p className="text-2xl font-bold text-green-500">{stats.solved}</p>
+            </div>
+          </div>
+
+          {/* Problems List */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+            <h2 className="text-lg font-semibold text-gray-700 mb-4">My Problems</h2>
+            
+            {problems.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">📋</div>
+                <p className="text-gray-400">No problems reported yet</p>
+                <Link
+                  to="/citizen/report"
+                  className="inline-block mt-3 text-[#D4A09A] hover:text-[#8B5E5E] font-medium"
+                >
+                  Report your first problem →
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {problems.map((problem) => (
+                  <Link
+                    key={problem._id}
+                    to={`/citizen/problem/${problem._id}`}
+                    className="block bg-white hover:shadow-md transition-shadow rounded-xl p-4 border border-gray-100"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-700">{problem.title}</h3>
+                        <p className="text-sm text-gray-400 line-clamp-1">{problem.description}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-400">{problem.category}</span>
+                          <span className="text-xs text-gray-300">•</span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(problem.createdAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                          {problem.location?.address && (
+                            <>
+                              <span className="text-xs text-gray-300">•</span>
+                              <span className="text-xs text-gray-400 flex items-center gap-1">
+                                <FaMapMarkerAlt className="text-[#D4A09A]" size={10} />
+                                {problem.location.address}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(problem.status)}`}>
+                          {getStatusIcon(problem.status)}
+                          {problem.status}
+                        </span>
+                        <FaEye className="text-gray-300 hover:text-[#D4A09A] transition-colors" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

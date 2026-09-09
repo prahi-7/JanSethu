@@ -63,9 +63,9 @@ const StudentDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 mt-1 md:mt-2 text-xs md:text-sm text-white/80">
                 <span className="flex items-center gap-2"><FaEnvelope /> {student.email}</span>
                 <span className="flex items-center gap-2"><FaIdCard /> Reg No: {student.regNo}</span>
-                <span className="flex items-center gap-2"><FaUniversity /> {student.university || 'IIT Dhanbad'}</span>
-                <span className="flex items-center gap-2"><FaUserGraduate /> {student.department || 'Computer Science Engineering'}</span>
-                <span className="flex items-center gap-2"><FaClock /> {student.year || '3rd Year'}</span>
+                <span className="flex items-center gap-2"><FaUniversity /> {student.university || 'University not provided'}</span>
+                <span className="flex items-center gap-2"><FaUserGraduate /> {student.department || 'Department not provided'}</span>
+                <span className="flex items-center gap-2"><FaClock /> {student.year || 'Year not provided'}</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -107,7 +107,7 @@ const StudentDashboard = () => {
             <FaUsers className="text-xl md:text-2xl text-green-400 mx-auto mb-1" />
             <p className="text-[10px] md:text-sm font-semibold text-gray-600">My Teams</p>
           </Link>
-          <Link to="/student/chat/1" className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md hover:border-purple-200 transition-all text-center">
+          <Link to="/student/teams" className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md hover:border-purple-200 transition-all text-center">
             <FaComments className="text-xl md:text-2xl text-purple-400 mx-auto mb-1" />
             <p className="text-[10px] md:text-sm font-semibold text-gray-600">Team Chat</p>
           </Link>

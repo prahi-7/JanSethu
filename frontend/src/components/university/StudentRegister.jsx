@@ -1,52 +1,51 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { 
-  FaEnvelope, 
-  FaIdCard, 
-  FaUser, 
-  FaUserPlus, 
-  FaArrowLeft,
+import {
   FaUniversity,
+  FaUser,
+  FaEnvelope,
+  FaIdCard,
   FaLock,
-  FaGraduationCap,
-  FaCalendarAlt,
   FaEye,
   FaEyeSlash,
-  FaCheckCircle
+  FaArrowLeft,
+  FaCheckCircle,
+  FaGraduationCap
 } from 'react-icons/fa';
-import Navbar from '../common/Navbar';
-import Footer from '../common/Footer';
 import Sidebar from '../common/Sidebar';
 import toast from 'react-hot-toast';
 
 const StudentRegister = () => {
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     regNo: '',
+    university: '',
     department: '',
     year: '',
     password: '',
-    confirmPassword: '',
+    confirmPassword: ''
   });
+
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
 
   const departments = [
-    'Computer Science Engineering',
-    'Information Technology',
-    'Electronics & Communication',
-    'Electrical Engineering',
-    'Mechanical Engineering',
-    'Civil Engineering',
-    'Chemical Engineering',
+    'CSE',
+    'IT',
+    'ECE',
+    'Electrical',
+    'Mechanical',
+    'Civil',
+    'Chemical',
     'Biotechnology',
     'Environmental Science',
     'Data Science',
-    'Artificial Intelligence',
+    'AI',
     'Robotics',
     'Physics',
     'Chemistry',
@@ -60,7 +59,7 @@ const StudentRegister = () => {
     'Architecture',
     'Design',
     'Journalism',
-    'Others',
+    'Others'
   ];
 
   const yearsOfStudy = [
@@ -70,22 +69,39 @@ const StudentRegister = () => {
     '4th Year',
     'Post Graduate',
     'PhD',
-    'Research Scholar',
+    'Research Scholar'
   ];
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const { name, email, regNo, password, confirmPassword } = formData;
-    
-    if (!name || !email || !regNo || !password) {
+
+    const {
+      name,
+      email,
+      regNo,
+      university,
+      department,
+      year,
+      password,
+      confirmPassword
+    } = formData;
+
+    // Required field validation
+    if (!name.trim() || !email.trim() || !regNo.trim() || !university.trim() || !password) {
       toast.error('Please fill all required fields');
       return;
     }
 
+    // Password validation
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -96,256 +112,372 @@ const StudentRegister = () => {
       return;
     }
 
+    // Terms validation
     if (!agreed) {
       toast.error('Please agree to the terms and conditions');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const API_URL =
+        import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          role: 'student',
+          regNo: regNo.trim(),
+          university: university.trim(),
+
+          // Send these only when selected
+          ...(department && { department }),
+          ...(year && { year })
+        })
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok || !responseData.success) {
+        throw new Error(
+          responseData.message ||
+          responseData.errors?.[0] ||
+          'Registration failed'
+        );
+      }
+
       toast.success('Registration successful! 🎉 Please login.');
-      setLoading(false);
+
+      // Go to Student Login
       navigate('/university/login');
-    }, 1500);
+
+    } catch (error) {
+      console.error('Student registration error:', error);
+
+      toast.error(
+        error.message || 'Registration failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 pt-16">
-      <Sidebar role="university" />
-      <div className="flex-1 p-4 md:p-8 ml-0 md:ml-64 flex items-center justify-center">
-        <div className="max-w-lg w-full">
-          {/* Back Button */}
-          <Link to="/university/dashboard" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mb-6 transition-colors group">
-            <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
-          </Link>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex">
 
-          {/* Register Card */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/40">
+      {/* Sidebar */}
+      <Sidebar role="university" />
+
+      {/* Main Content */}
+      <div className="flex-1 p-6 md:p-10">
+
+        {/* Back Button */}
+        <Link
+          to="/university/dashboard"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition"
+        >
+          <FaArrowLeft />
+          Back to Dashboard
+        </Link>
+
+        <div className="max-w-3xl mx-auto">
+
+          {/* Registration Card */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+
             {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-green-500/30 hover:scale-105 transition-transform">
-                <FaUserPlus className="text-4xl text-white" />
+            <div className="bg-gradient-to-r from-green-600 to-blue-600 px-8 py-7 text-white">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-4 rounded-xl">
+                  <FaGraduationCap className="text-3xl" />
+                </div>
+
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold">
+                    Student Registration
+                  </h1>
+
+                  <p className="text-green-100 mt-1">
+                    Create a student account to access JanSethu
+                  </p>
+                </div>
               </div>
-              <h1 className="text-3xl font-bold text-gray-800">Create Account 🚀</h1>
-              <p className="text-gray-500 mt-1">Join JanSethu and start solving problems</p>
             </div>
 
-            {/* Register Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-8">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
-                  <div className="relative group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <FaUser />
-                    </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
                     <input
                       type="text"
                       name="name"
-                      placeholder="Your name"
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 transition-all"
-                      required
+                      placeholder="Enter your full name"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
                     />
                   </div>
                 </div>
 
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
-                  <div className="relative group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <FaEnvelope />
-                    </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
                     <input
                       type="email"
                       name="email"
-                      placeholder="you@email.com"
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 transition-all"
-                      required
+                      placeholder="Enter your email"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
                     />
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Register No *</label>
-                <div className="relative group">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                    <FaIdCard />
-                  </div>
-                  <input
-                    type="text"
-                    name="regNo"
-                    placeholder="Enter Registration No"
-                    value={formData.regNo}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 transition-all"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Registration Number */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
-                  <div className="relative group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <FaGraduationCap />
-                    </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Registration Number <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaIdCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                    <input
+                      type="text"
+                      name="regNo"
+                      value={formData.regNo}
+                      onChange={handleChange}
+                      placeholder="Enter registration number"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                {/* University / College */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    University / College <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaUniversity className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                    <input
+                      type="text"
+                      name="university"
+                      value={formData.university}
+                      onChange={handleChange}
+                      placeholder="Enter your university / college"
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter the official name of your university or college.
+                  </p>
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Department
+                  </label>
+
+                  <div className="relative">
                     <select
                       name="department"
                       value={formData.department}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 appearance-none transition-all"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                      disabled={loading}
                     >
-                      <option value="">Select Department</option>
-                      {departments.map((dept) => (
-                        <option key={dept} value={dept}>{dept}</option>
+                      <option value="">
+                        Select your department
+                      </option>
+
+                      {departments.map((department) => (
+                        <option key={department} value={department}>
+                          {department}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
+                {/* Year */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Year of Study</label>
-                  <div className="relative group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <FaCalendarAlt />
-                    </div>
-                    <select
-                      name="year"
-                      value={formData.year}
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Year of Study
+                  </label>
+
+                  <select
+                    name="year"
+                    value={formData.year}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
+                    disabled={loading}
+                  >
+                    <option value="">
+                      Select year
+                    </option>
+
+                    {yearsOfStudy.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 appearance-none transition-all"
+                      placeholder="Create a password"
+                      className="w-full pl-11 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      <option value="">Select Year</option>
-                      {yearsOfStudy.map((year) => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    Minimum 6 characters
+                  </p>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="relative">
+                    <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="Confirm your password"
+                      className="w-full pl-11 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      disabled={loading}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
                   </div>
                 </div>
+
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password *</label>
-                <div className="relative group">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                    <FaLock />
-                  </div>
+              {/* Terms */}
+              <div className="mt-6">
+                <label className="flex items-start gap-3 cursor-pointer">
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    placeholder="Min 6 characters"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 transition-all"
-                    required
-                    minLength="6"
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                    disabled={loading}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password *</label>
-                <div className="relative group">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                    <FaLock />
-                  </div>
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 transition-all"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Terms & Conditions */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="terms" className="text-sm text-gray-600">
-                  I agree to the <Link to="/terms" className="text-blue-600 hover:underline">Terms & Conditions</Link> and <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>
+                  <span className="text-sm text-gray-600">
+                    I agree to the{' '}
+                    <span className="text-green-600 font-semibold">
+                      Terms and Conditions
+                    </span>{' '}
+                    and confirm that the information provided is accurate.
+                  </span>
                 </label>
               </div>
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-green-500 to-blue-600 text-white py-3.5 rounded-2xl font-semibold hover:shadow-xl shadow-green-500/30 transition-all hover:scale-[1.02] disabled:opacity-70 flex items-center justify-center gap-2"
+                className="w-full mt-7 bg-gradient-to-r from-green-600 to-blue-600 text-white py-3.5 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Registering...
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Creating Account...
                   </>
                 ) : (
-                  <><FaUserPlus /> Create Account</>
+                  <>
+                    <FaCheckCircle />
+                    Create Student Account
+                  </>
                 )}
               </button>
+
+              {/* Login Link */}
+              <p className="text-center text-sm text-gray-600 mt-6">
+                Already have a student account?{' '}
+                <Link
+                  to="/university/login"
+                  className="text-green-600 font-semibold hover:text-green-700"
+                >
+                  Login here
+                </Link>
+              </p>
+
             </form>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 my-5">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-              <span className="text-sm text-gray-400">Already have an account?</span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-            </div>
-
-            {/* Login Link */}
-            <Link
-              to="/university/login"
-              className="block w-full text-center py-3.5 border-2 border-blue-200 text-blue-600 rounded-2xl font-semibold hover:bg-blue-50 hover:border-blue-300 transition-all"
-            >
-              Login to Existing Account 🔑
-            </Link>
           </div>
+
         </div>
       </div>
-
-      {/* Custom Scrollbar Styles */}
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f3f4f6;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #d1d5db;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #9ca3af;
-        }
-      `}</style>
     </div>
   );
 };

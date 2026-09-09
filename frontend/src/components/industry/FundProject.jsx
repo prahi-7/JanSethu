@@ -1,335 +1,534 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  FaArrowLeft, 
-  FaDollarSign, 
-  FaHandshake,
-  FaCheckCircle,
-  FaClock,
-  FaInfoCircle,
-  FaArrowRight,
-  FaHeart,
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  FaArrowLeft,
   FaCoins,
-  FaFileInvoice,
-  FaCalendarAlt,
-  FaUser,
-  FaEnvelope,
-  FaPhone,
-  FaBuilding,
-  FaMoneyBillWave,
-  FaTools,
-  FaUserTie,
-  FaSearch,
-  FaProjectDiagram
+  FaSpinner,
+  FaCheckCircle
 } from 'react-icons/fa';
 import Sidebar from '../common/Sidebar';
 import toast from 'react-hot-toast';
 
 const FundProject = () => {
+  // IMPORTANT:
+  // Route is /industry/fund/:projectId
   const { projectId } = useParams();
+
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+
+  const [project, setProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
-    // Project Details - Manual Entry
-    projectId: projectId || '',
-    projectName: '',
-    // Personal Details
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    // Funding Details
     amount: '',
-    fundingType: 'equipment',
+    fundingType: 'Grant',
     description: '',
-    timeline: '3',
-    // Additional Details
+    timeline: '',
     transactionId: '',
-    remarks: '',
+    remarks: ''
   });
 
-  const fundingTypes = [
-    { value: 'equipment', label: 'Equipment & Materials', icon: <FaTools /> },
-    { value: 'mentorship', label: 'Mentorship & Expertise', icon: <FaUserTie /> },
-    { value: 'cash', label: 'Cash Funding', icon: <FaMoneyBillWave /> },
-    { value: 'infrastructure', label: 'Infrastructure Support', icon: <FaBuilding /> },
-    { value: 'other', label: 'Other', icon: <FaHeart /> },
-  ];
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const { projectId, projectName, name, email, amount, fundingType } = formData;
-    if (!projectId || !projectName || !name || !email || !amount || !fundingType) {
-      toast.error('Please fill in all required fields');
+  // --------------------------------------------------
+  // FETCH PROJECT
+  // --------------------------------------------------
+  useEffect(() => {
+    if (!projectId) {
+      console.error('❌ FUND PROJECT: projectId is missing');
+      toast.error('Project ID is missing');
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      toast.success(`Funding committed successfully for ${projectName}! 🎉`);
+
+    console.log('🔥 FUND PROJECT URL ID:', projectId);
+    console.log(
+      '🔥 FUND PROJECT URL ID TYPE:',
+      typeof projectId
+    );
+
+    fetchProject();
+  }, [projectId]);
+
+  const fetchProject = async () => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        throw new Error('Please login again');
+      }
+
+      const response = await fetch(
+        `http://localhost:5000/api/industry/projects/${encodeURIComponent(projectId)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      console.log('🔥 FUND PROJECT FETCH RESPONSE:', data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || 'Failed to load project'
+        );
+      }
+
+      const projectData =
+        data.data?.project ||
+        data.data?.data ||
+        data.data;
+
+      if (!projectData) {
+        throw new Error('Project data not found');
+      }
+
+      setProject(projectData);
+
+    } catch (error) {
+      console.error(
+        '❌ FUND PROJECT FETCH ERROR:',
+        error
+      );
+
+      toast.error(
+        error.message || 'Failed to load project'
+      );
+    } finally {
       setLoading(false);
-      navigate('/industry/dashboard');
-    }, 1500);
+    }
   };
 
+  // --------------------------------------------------
+  // INPUT CHANGE
+  // --------------------------------------------------
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // --------------------------------------------------
+  // SUBMIT FUNDING
+  // --------------------------------------------------
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!projectId) {
+      toast.error('Project ID is missing');
+      return;
+    }
+
+    if (!formData.amount) {
+      toast.error('Please enter funding amount');
+      return;
+    }
+
+    const amount = Number(formData.amount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error(
+        'Funding amount must be greater than 0'
+      );
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        throw new Error('Please login again');
+      }
+
+      // IMPORTANT:
+      // This EXACT projectId came from:
+      // /industry/fund/:projectId
+      //
+      // Backend route:
+      // POST /api/industry/funding
+      //
+      // projectId is sent in the request body.
+
+      const requestBody = {
+        projectId: projectId,
+        amount: amount,
+        fundingType: formData.fundingType,
+        description: formData.description,
+        timeline: formData.timeline,
+        transactionId: formData.transactionId,
+        remarks: formData.remarks
+      };
+
+      console.log(
+        '🔥 FUNDING REQUEST BODY:',
+        requestBody
+      );
+
+      const response = await fetch(
+        'http://localhost:5000/api/industry/funding',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(
+        '🔥 FUNDING RESPONSE:',
+        data
+      );
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || 'Failed to fund project'
+        );
+      }
+
+      toast.success(
+        data.message || 'Project funded successfully!'
+      );
+
+      // Go back to the SAME project.
+      navigate(
+        `/industry/project/${encodeURIComponent(projectId)}`
+      );
+
+    } catch (error) {
+      console.error(
+        '❌ FUNDING SUBMIT ERROR:',
+        error
+      );
+
+      toast.error(
+        error.message || 'Failed to fund project'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --------------------------------------------------
+  // LOADING
+  // --------------------------------------------------
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-[#FFF5F2] pt-16">
+
+        <Sidebar role="industry" />
+
+        <div className="flex-1 ml-64 flex items-center justify-center">
+
+          <FaSpinner className="animate-spin text-4xl text-[#FFCABE]" />
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
+  // PROJECT NOT FOUND
+  // --------------------------------------------------
+  if (!project) {
+    return (
+      <div className="flex min-h-screen bg-[#FFF5F2] pt-16">
+
+        <Sidebar role="industry" />
+
+        <div className="flex-1 ml-64 p-8">
+
+          <Link
+            to="/industry/projects"
+            className="text-[#D4A09A] flex items-center mb-5 text-sm"
+          >
+            <FaArrowLeft className="mr-2" />
+            Back to Projects
+          </Link>
+
+          <div className="bg-white rounded-2xl p-6">
+
+            <p className="text-gray-500">
+              Project not found.
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // --------------------------------------------------
+  // MAIN PAGE
+  // --------------------------------------------------
   return (
     <div className="flex min-h-screen bg-[#FFF5F2] pt-16">
+
       <Sidebar role="industry" />
+
       <div className="flex-1 p-4 md:p-8 ml-0 md:ml-64">
-        <Link to="/industry/dashboard" className="text-[#D4A09A] hover:text-[#8B5E5E] flex items-center mb-4 text-sm group">
-          <FaArrowLeft className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
-        </Link>
 
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <FaCoins className="text-3xl text-[#D4A09A]" />
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-700">Fund Project</h1>
-          </div>
-          <p className="text-sm md:text-base text-gray-400 mb-4 md:mb-6">Provide funding or resources to support a project</p>
 
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-[#FFCABE] p-4 md:p-6">
-            {/* Project Details Section - Manual Entry */}
-            <div className="mb-4 md:mb-6 p-3 md:p-4 bg-[#FFF5F2] rounded-xl border border-[#FFCABE]">
-              <h3 className="font-semibold text-[#D4A09A] text-sm md:text-base flex items-center gap-2 mb-3">
-                <FaProjectDiagram className="text-[#D4A09A]" /> Project Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                    Project ID <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      name="projectId"
-                      value={formData.projectId}
-                      onChange={handleChange}
-                      placeholder="e.g., P-2024-001"
-                      className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                      required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                    Project Name <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <FaProjectDiagram className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      name="projectName"
-                      value={formData.projectName}
-                      onChange={handleChange}
-                      placeholder="e.g., Smart Waste Segregation System"
-                      className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                      required
-                    />
-                  </div>
-                </div>
+          {/* Back */}
+          <Link
+            to={`/industry/project/${encodeURIComponent(projectId)}`}
+            className="text-[#D4A09A] flex items-center mb-5 text-sm"
+          >
+            <FaArrowLeft className="mr-2" />
+            Back to Project
+          </Link>
+
+          {/* Header */}
+          <div className="bg-white rounded-2xl p-6 border border-[#FFCABE] mb-5">
+
+            <div className="flex items-center gap-3">
+
+              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <FaCoins className="text-green-600 text-xl" />
               </div>
+
+              <div>
+
+                <h1 className="text-2xl font-bold text-gray-700">
+                  Fund Project
+                </h1>
+
+                <p className="text-gray-500 text-sm mt-1">
+                  {project.title}
+                </p>
+
+              </div>
+
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4 md:space-y-5">
-                {/* Personal Details Section */}
-                <div className="border-b border-[#FFCABE] pb-4">
-                  <h2 className="text-base md:text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <FaUser className="text-[#D4A09A]" /> Your Details
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                        Full Name <span className="text-red-400">*</span>
-                      </label>
-                      <div className="relative">
-                        <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="name"
-                          value={formData.name}
-                          onChange={handleChange}
-                          placeholder="Enter your name"
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                        Email <span className="text-red-400">*</span>
-                      </label>
-                      <div className="relative">
-                        <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          placeholder="you@company.com"
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Phone</label>
-                      <div className="relative">
-                        <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handleChange}
-                          placeholder="+91 98765 43210"
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Company</label>
-                      <div className="relative">
-                        <FaBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          name="company"
-                          value={formData.company}
-                          onChange={handleChange}
-                          placeholder="Your company name"
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          </div>
 
-                {/* Funding Details Section */}
-                <div className="border-b border-[#FFCABE] pb-4">
-                  <h2 className="text-base md:text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <FaCoins className="text-[#D4A09A]" /> Funding Details
-                  </h2>
-                  <div className="space-y-3 md:space-y-4">
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                        Funding Amount <span className="text-red-400">*</span> <span className="text-xs text-gray-400">(in INR)</span>
-                      </label>
-                      <div className="relative">
-                        <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="number"
-                          name="amount"
-                          value={formData.amount}
-                          onChange={handleChange}
-                          placeholder="Enter amount in INR"
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                          required
-                        />
-                      </div>
-                    </div>
+          {/* Existing funding */}
+          {Number(project.fundingAmount || 0) > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-5">
 
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">
-                        Funding Type <span className="text-red-400">*</span>
-                      </label>
-                      <select
-                        name="fundingType"
-                        value={formData.fundingType}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                        required
-                      >
-                        {fundingTypes.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.icon} {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              <div className="flex items-center gap-3">
 
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Description</label>
-                      <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        rows="2"
-                        placeholder="Describe what you're funding and any conditions..."
-                        className="w-full px-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                      />
-                    </div>
+                <FaCheckCircle className="text-green-600 text-xl" />
 
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Timeline (months)</label>
-                      <div className="relative">
-                        <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <select
-                          name="timeline"
-                          value={formData.timeline}
-                          onChange={handleChange}
-                          className="w-full pl-9 pr-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                        >
-                          {[1, 2, 3, 4, 5, 6].map(num => (
-                            <option key={num} value={num}>{num} month{num > 1 ? 's' : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Details */}
                 <div>
-                  <h2 className="text-base md:text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <FaFileInvoice className="text-[#D4A09A]" /> Additional Details
-                  </h2>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Transaction ID (Optional)</label>
-                      <input
-                        type="text"
-                        name="transactionId"
-                        value={formData.transactionId}
-                        onChange={handleChange}
-                        placeholder="Enter transaction ID"
-                        className="w-full px-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs md:text-sm font-medium text-gray-600 mb-1">Remarks</label>
-                      <textarea
-                        name="remarks"
-                        value={formData.remarks}
-                        onChange={handleChange}
-                        rows="2"
-                        placeholder="Any additional remarks..."
-                        className="w-full px-3 py-2.5 bg-white/70 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCABE] text-gray-700 text-sm"
-                      />
-                    </div>
-                  </div>
+
+                  <p className="font-semibold text-green-700">
+                    This project has already received funding
+                  </p>
+
+                  <p className="text-green-600 text-sm mt-1">
+                    Current funding: ₹
+                    {Number(
+                      project.fundingAmount
+                    ).toLocaleString('en-IN')}
+                  </p>
+
                 </div>
 
-                {/* Funding Button */}
+              </div>
+
+            </div>
+          )}
+
+          {/* Funding Form */}
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white rounded-2xl p-6 border border-gray-100"
+          >
+
+            <div className="space-y-5">
+
+              {/* Amount */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Funding Amount *
+                </label>
+
+                <div className="relative">
+
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                    ₹
+                  </span>
+
+                  <input
+                    type="number"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    min="1"
+                    step="1"
+                    placeholder="Enter amount"
+                    className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 outline-none focus:border-[#FFCABE]"
+                    required
+                  />
+
+                </div>
+
+              </div>
+
+              {/* Funding Type */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Funding Type
+                </label>
+
+                <select
+                  name="fundingType"
+                  value={formData.fundingType}
+                  onChange={handleChange}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FFCABE]"
+                >
+
+                  <option value="Grant">
+                    Grant
+                  </option>
+
+                  <option value="Investment">
+                    Investment
+                  </option>
+
+                  <option value="Sponsorship">
+                    Sponsorship
+                  </option>
+
+                  <option value="Other">
+                    Other
+                  </option>
+
+                </select>
+
+              </div>
+
+              {/* Description */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Funding Description
+                </label>
+
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows="4"
+                  placeholder="Explain the purpose of this funding..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FFCABE] resize-none"
+                />
+
+              </div>
+
+              {/* Timeline */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Funding Timeline
+                </label>
+
+                <input
+                  type="text"
+                  name="timeline"
+                  value={formData.timeline}
+                  onChange={handleChange}
+                  placeholder="Example: 6 months"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FFCABE]"
+                />
+
+              </div>
+
+              {/* Transaction ID */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Transaction / Reference ID
+                </label>
+
+                <input
+                  type="text"
+                  name="transactionId"
+                  value={formData.transactionId}
+                  onChange={handleChange}
+                  placeholder="Optional reference ID"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FFCABE]"
+                />
+
+              </div>
+
+              {/* Remarks */}
+              <div>
+
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Remarks
+                </label>
+
+                <textarea
+                  name="remarks"
+                  value={formData.remarks}
+                  onChange={handleChange}
+                  rows="3"
+                  placeholder="Additional remarks..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#FFCABE] resize-none"
+                />
+
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#FFCABE] text-[#8B5E5E] py-2.5 md:py-3 rounded-xl font-semibold hover:shadow-lg shadow-[#FFCABE]/30 transition-all disabled:opacity-70 flex items-center justify-center gap-2 hover:scale-[1.02] text-sm md:text-base"
+                  disabled={submitting}
+                  className="flex-1 bg-green-500 hover:bg-green-600 disabled:opacity-60 text-white px-5 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
-                  <FaHandshake />
-                  {loading ? 'Processing...' : 'Commit Funding'}
-                </button>
-              </div>
-            </form>
 
-            <div className="mt-4 p-3 bg-[#FFF5F2] rounded-xl border border-[#FFCABE] text-center">
-              <p className="text-xs text-gray-500">💝 Your contribution will make a difference!</p>
+                  {submitting ? (
+                    <>
+                      <FaSpinner className="animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <FaCoins />
+                      Confirm Funding
+                    </>
+                  )}
+
+                </button>
+
+                <Link
+                  to={`/industry/project/${encodeURIComponent(projectId)}`}
+                  className="flex-1 border border-gray-200 text-gray-600 px-5 py-3 rounded-xl font-semibold flex items-center justify-center"
+                >
+                  Cancel
+                </Link>
+
+              </div>
+
             </div>
-          </div>
+
+          </form>
+
         </div>
+
       </div>
+
     </div>
   );
 };

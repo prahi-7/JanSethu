@@ -1,106 +1,342 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FaBuilding, 
-  FaProjectDiagram, 
-  FaUsers, 
-  FaHandshake,
-  FaDollarSign,
-  FaUserTie,
-  FaCheckCircle,
-  FaClock,
-  FaArrowRight,
+import {
+  FaBriefcase,
+  FaSpinner,
   FaPlus,
-  FaHeart
+  FaEye
 } from 'react-icons/fa';
 import Sidebar from '../common/Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const IndustryDashboard = () => {
-  const [stats] = useState({
-    projectsSupported: 0,
-    teamsMentored: 0,
-    solutionsDeployed: 0,
-    fundedProjects: 0,
-    availableProjects: 0,
+  const { user } = useAuth();
+
+  const [projects, setProjects] = useState([]);
+
+  const [stats, setStats] = useState({
+    total: 0,
+    funded: 0,
+    inProgress: 0,
+    completed: 0
   });
 
-  const [recentActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        toast.error('Please login again');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch REAL student projects
+      const response = await fetch(
+        'http://localhost:5000/api/industry/projects',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      console.log('📥 Industry projects response:', data);
+
+      if (!response.ok || !data.success) {
+        toast.error(
+          data.message || 'Failed to load projects'
+        );
+        return;
+      }
+
+      // Backend response:
+      // data.data.projects
+      const allProjects =
+        data.data?.projects || [];
+
+      console.log(
+        '📋 Projects received:',
+        allProjects
+      );
+
+      setProjects(allProjects);
+
+      // Project statuses are:
+      // Idea
+      // In Progress
+      // Review
+      // Completed
+
+      const calculatedStats = {
+        total: allProjects.length,
+
+        funded: allProjects.filter(
+          project =>
+            Number(project.fundingAmount || 0) > 0
+        ).length,
+
+        inProgress: allProjects.filter(
+          project =>
+            project.status === 'In Progress'
+        ).length,
+
+        completed: allProjects.filter(
+          project =>
+            project.status === 'Completed'
+        ).length
+      };
+
+      setStats(calculatedStats);
+
+    } catch (error) {
+      console.error(
+        '❌ Error fetching industry projects:',
+        error
+      );
+
+      toast.error(
+        'Failed to load projects'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-gradient-to-br from-[#FFF5F2] via-white to-blue-50 pt-16">
+        <Sidebar role="industry" />
+
+        <div className="flex-1 p-8 ml-64 flex items-center justify-center">
+          <FaSpinner className="animate-spin text-4xl text-[#FFCABE]" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#FFF5F2] via-white to-blue-50 pt-16">
+
       <Sidebar role="industry" />
+
       <div className="flex-1 p-4 md:p-8 ml-0 md:ml-64">
-        <div className="mb-4 md:mb-6">
-          <div className="flex items-center gap-3 mb-1">
-            <FaBuilding className="text-3xl md:text-4xl text-orange-400" />
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-700">Industry Dashboard</h1>
-          </div>
-          <p className="text-sm md:text-base text-gray-400">Support student teams and deploy solutions</p>
-        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md transition-all">
-            <p className="text-[10px] md:text-sm text-gray-400">Projects Supported</p>
-            <p className="text-xl md:text-2xl lg:text-3xl font-bold text-blue-500">{stats.projectsSupported}</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md transition-all">
-            <p className="text-[10px] md:text-sm text-gray-400">Teams Mentored</p>
-            <p className="text-xl md:text-2xl lg:text-3xl font-bold text-purple-500">{stats.teamsMentored}</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md transition-all">
-            <p className="text-[10px] md:text-sm text-gray-400">Solutions Deployed</p>
-            <p className="text-xl md:text-2xl lg:text-3xl font-bold text-green-500">{stats.solutionsDeployed}</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4 hover:shadow-md transition-all">
-            <p className="text-[10px] md:text-sm text-gray-400">Funded Projects</p>
-            <p className="text-xl md:text-2xl lg:text-3xl font-bold text-orange-500">{stats.fundedProjects}</p>
-          </div>
-        </div>
+        <div className="max-w-6xl mx-auto">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
-          <Link to="/industry/projects" className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md hover:border-[#FFCABE] transition-all">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#FFF5F2] rounded-xl flex items-center justify-center">
-                <FaProjectDiagram className="text-xl md:text-2xl text-pink-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-700 text-sm md:text-base">View Projects</p>
-                <p className="text-xs md:text-sm text-gray-400">Browse available projects to support</p>
-              </div>
-            </div>
-          </Link>
-          <Link to="/industry/fund/1" className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md hover:border-green-200 transition-all">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                <FaDollarSign className="text-xl md:text-2xl text-green-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-700 text-sm md:text-base">Fund Projects</p>
-                <p className="text-xs md:text-sm text-gray-400">Provide funding for promising solutions</p>
-              </div>
-            </div>
-          </Link>
-        </div>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
 
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-bold text-gray-700 mb-3 md:mb-4">Recent Activity</h2>
-          {recentActivities.length === 0 ? (
-            <div className="text-center py-6 md:py-8 text-gray-400">
-              <FaHeart className="text-3xl md:text-4xl text-gray-300 mx-auto mb-3" />
-              <p className="text-sm md:text-base">No recent activity</p>
-              <p className="text-xs md:text-sm text-gray-300 mt-1">Activities will appear here once you start supporting projects</p>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-700">
+                <FaBriefcase className="inline-block text-[#D4A09A] mr-2" />
+                Industry Dashboard
+              </h1>
+
+              <p className="text-gray-400 text-sm">
+                Welcome back, {user?.name}!
+              </p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 p-3 bg-white/50 rounded-xl">
-                  {/* Activity details */}
+
+            <Link
+              to="/industry/projects"
+              className="mt-3 md:mt-0 bg-gradient-to-r from-[#FFCABE] to-[#E8B5A9] text-white px-6 py-2.5 rounded-xl font-semibold hover:shadow-lg shadow-[#FFCABE] transition-all flex items-center gap-2 hover:scale-[1.02]"
+            >
+              <FaPlus />
+              View Projects
+            </Link>
+
+          </div>
+
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+
+            {/* Total */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-gray-100">
+              <p className="text-gray-400 text-sm">
+                Total Projects
+              </p>
+
+              <p className="text-2xl font-bold text-gray-700">
+                {stats.total}
+              </p>
+            </div>
+
+
+            {/* Funded */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-green-100">
+              <p className="text-green-500 text-sm">
+                Funded
+              </p>
+
+              <p className="text-2xl font-bold text-green-500">
+                {stats.funded}
+              </p>
+            </div>
+
+
+            {/* In Progress */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-purple-100">
+              <p className="text-purple-500 text-sm">
+                In Progress
+              </p>
+
+              <p className="text-2xl font-bold text-purple-500">
+                {stats.inProgress}
+              </p>
+            </div>
+
+
+            {/* Completed */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-blue-100">
+              <p className="text-blue-500 text-sm">
+                Completed
+              </p>
+
+              <p className="text-2xl font-bold text-blue-500">
+                {stats.completed}
+              </p>
+            </div>
+
+          </div>
+
+
+          {/* Projects */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
+
+            <h2 className="text-lg font-semibold text-gray-700 mb-4">
+              Available Student Projects
+            </h2>
+
+            {projects.length === 0 ? (
+
+              <div className="text-center py-8">
+
+                <div className="text-4xl mb-3">
+                  📋
                 </div>
-              ))}
-            </div>
-          )}
+
+                <p className="text-gray-400">
+                  No projects available
+                </p>
+
+                <p className="text-sm text-gray-400 mt-1">
+                  Check back later for new student projects
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="space-y-3">
+
+                {projects.map((project) => (
+
+                  <div
+                    key={project._id}
+                    className="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-all"
+                  >
+
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+
+                      <div className="flex-1">
+
+                        <h3 className="font-semibold text-gray-700">
+                          {project.title}
+                        </h3>
+
+                        <p className="text-sm text-gray-500 line-clamp-2">
+                          {project.description}
+                        </p>
+
+
+                        {/* Project information */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+
+                          {project.solutionType && (
+                            <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded">
+                              {project.solutionType}
+                            </span>
+                          )}
+
+                          {project.team?.name && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                              Team: {project.team.name}
+                            </span>
+                          )}
+
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              project.status === 'Completed'
+                                ? 'bg-green-50 text-green-600'
+                                : project.status === 'In Progress'
+                                ? 'bg-purple-50 text-purple-600'
+                                : project.status === 'Review'
+                                ? 'bg-blue-50 text-blue-600'
+                                : 'bg-yellow-50 text-yellow-600'
+                            }`}
+                          >
+                            {project.status}
+                          </span>
+
+                          {Number(project.fundingAmount || 0) > 0 && (
+                            <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded">
+                              Funded ₹{Number(
+                                project.fundingAmount
+                              ).toLocaleString('en-IN')}
+                            </span>
+                          )}
+
+                          {project.createdAt && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(
+                                project.createdAt
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+
+                        </div>
+
+                      </div>
+
+
+                      {/* View details */}
+                      <Link
+                        to={`/industry/project/${project._id}`}
+                        className="text-[#D4A09A] hover:text-[#8B5E5E] text-sm flex items-center gap-1 whitespace-nowrap"
+                      >
+                        View Details
+                        <FaEye />
+                      </Link>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
+
+          </div>
+
         </div>
+
       </div>
+
     </div>
   );
 };
