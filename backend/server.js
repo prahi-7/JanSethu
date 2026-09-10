@@ -23,6 +23,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const escalationRoutes = require('./routes/escalationRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Initialize express app
 const app = express();
@@ -312,6 +313,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin/escalations', escalationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Root route
 app.get('/', (req, res) => {
