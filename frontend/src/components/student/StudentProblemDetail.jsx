@@ -186,14 +186,23 @@ const StudentProblemDetail = () => {
               </h2>
 
               <p className="text-sm text-gray-400 mt-1 mb-4">
-                Form a team of up to 3 students and work together
+                Form a team of up to 6 students and work together
                 to submit a solution.
               </p>
 
               <div className="flex flex-wrap gap-3">
 
+                {/* IMPORTANT:
+                    Pass both problem and problemId through
+                    React Router state so CreateTeam.jsx can
+                    load recommended students.
+                */}
                 <Link
                   to={`/student/teams/create?problemId=${problem._id}`}
+                  state={{
+                    problem: problem,
+                    problemId: problem._id
+                  }}
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FFCABE] to-[#E8B5A9] text-white font-semibold hover:shadow-md transition"
                 >
                   Create Team
